@@ -37,15 +37,23 @@
   .lookup-row button{font-family:inherit;font-size:15px;font-weight:700;color:#fff;background:var(--red);border:none;padding:12px 22px;border-radius:11px;cursor:pointer}
   .lookup-row button:active{background:var(--red-dark)}
   .lookup-row button:disabled{background:#b9bcc6;cursor:not-allowed}
+  .memo{margin-top:14px;padding:12px 14px;background:#FFFDF5;border:1.5px solid #F2E3A8;border-radius:12px}
+  .memo textarea{width:100%;font-family:inherit;font-size:13.5px;line-height:1.6;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;resize:vertical;box-sizing:border-box;margin-top:6px}
+  .memo textarea:focus{outline:none;border-color:var(--red)}
+  .memo-actions{display:flex;align-items:center;gap:10px;margin-top:8px}
+  .memo-actions button{padding:8px 16px;font-family:inherit;font-size:13px;font-weight:700;border-radius:9px;cursor:pointer}
+  .memo-status{font-size:12px;color:#12A150;font-weight:700}
 
   .lookup-row input:disabled{background:#f1f2f5;color:var(--ink-faint);cursor:not-allowed}
   .lookup-hint{margin-top:12px;font-size:12.5px;color:var(--ink-faint);font-weight:600;line-height:1.5}
   .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
   .recent{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .recent .rlabel{font-size:11.5px;color:var(--ink-faint);align-self:center;margin-right:2px}
-  .recent .rchip{display:flex;align-items:center;gap:6px;background:#F7F8FA;border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer}
-  .recent .rchip:active{background:#EFEFF1}
+  .recent .rchip{display:flex;align-items:center;gap:6px;background:#F7F8FA;border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px;font-weight:700;color:var(--ink-soft)}
   .recent .rchip .rdel{display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;color:var(--ink-faint);font-size:11px;font-weight:800}
+  .recent .rchip .rnote{font-weight:500;color:var(--ink-faint);font-size:11.5px}
+  .recent .rchip .rload{font-family:inherit;background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:800;cursor:pointer;margin-left:4px}
+  .recent .rchip .rload:active{background:#FFF6F8}
   .recent .rchip .rdel:hover{background:#E4E6EA}
   .chip{font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;background:#F2F3F5;color:var(--ink-soft)}
   .chip b{color:var(--ink)}
@@ -400,8 +408,7 @@ const CALCS={
       {id:'regCount',type:'seg',label:'🎁 신규 모바일 고객 등록 인원수',sm:'모바일 쿠폰(이마트 상품권) 지급 기준 · MeAI 활용 필수',opts:['0명','1명','2명','3명'],def:'1명',showIf:()=>lookup&&lookup.act==='Chance'},
       {id:'m',type:'num',label:'📅 당월 총 월납(N잡 실적 현황)',def:100000,group:'pay'},
       {id:'adjP',type:'num',label:'📅 당월 총 수정보험료(N잡 실적 현황)',def:220000,group:'pay'},
-      {id:'mCert',type:'num',label:'📅 당월 시책 인정 월납',sm:'실손/성공파트너/펫보험 재가입 등 제외. 하단 \'시책 인정 기준\' 참고.',def:100000,group:'pay',showIf:()=>lookup&&lookup.act==='Active'},
-      {id:'mCert',type:'num',label:'📅 당월 계약 체결 실적',sm:'MeAI 활용 필수 · 계약 체결 시 지급. 하단 \'시책 인정 기준\' 참고.',def:50000,group:'pay',showIf:()=>lookup&&lookup.act==='Chance'},
+      {id:'mCert',type:'num',label:'📅 당월 시책 인정 월납',sm:'실손/성공파트너/펫보험 재가입 등 제외. 하단 \'시책 인정 기준\' 참고.',def:100000,group:'pay'},
     ],
     compute(v){
       const act=v._act,mon=v._mon,fee=v._fee;
@@ -546,6 +553,7 @@ function renderCalc(){
       }
     }
     box.appendChild(field);
+    if(cur==='E2'&&lookup&&f.id==='mCert')box.appendChild(buildMemoField(lookup.code));
   });
   updateCalcState();
 }
@@ -632,12 +640,36 @@ function saveRecent(code,name){
   const entry={code,name,ts:Date.now()};
   if(existing){
     if(existing.values)entry.values=existing.values;
+    if(existing.memo)entry.memo=existing.memo;
     entry.lastTs=existing.ts;//직전 방문 시각을 보존 (지금 이 순간이 아님)
   }
   list.unshift(entry);
   list=list.slice(0,5);
   try{localStorage.setItem(RECENT_KEY,JSON.stringify(list));}catch(e){}
   renderRecent();
+}
+function saveRecentMemo(code,memo){
+  const list=getRecent();
+  const idx=list.findIndex(x=>x.code===code);
+  if(idx===-1)return false;
+  list[idx].memo=memo;
+  try{localStorage.setItem(RECENT_KEY,JSON.stringify(list));}catch(e){return false;}
+  return true;
+}
+function buildMemoField(code){
+  const entry=getRecent().find(x=>x.code===code);
+  const wrap=document.createElement('div');wrap.className='memo';
+  wrap.innerHTML=`<label class="label">📝 메모 <span class="sm">· 이 사번에 대한 메모 (이 기기에만 저장)</span></label>
+    <textarea class="memoText" rows="3" placeholder="예) 10월 실손 1건 제외, 11월 재가입 예정…"></textarea>
+    <div class="memo-actions"><button class="btn-save memoSave">저장</button><span class="memo-status"></span></div>`;
+  const ta=wrap.querySelector('.memoText'),st=wrap.querySelector('.memo-status');
+  ta.value=(entry&&entry.memo)||'';
+  wrap.querySelector('.memoSave').onclick=()=>{
+    const ok=saveRecentMemo(code,ta.value.trim());
+    st.textContent=ok?'저장됨 ✓':'저장 실패';
+    setTimeout(()=>{st.textContent='';},2000);
+  };
+  return wrap;
 }
 function saveRecentValues(code,values){
   const list=getRecent();
@@ -665,10 +697,11 @@ function renderRecent(){
   const list=getRecent().filter(x=>x.code===typed&&x.lastTs);
   if(!list.length){box.innerHTML='';return;}
   box.innerHTML=list.map(x=>
-    `<span class="rchip" data-code="${x.code}"><span class="rname">이전 조회 일시: ${fmtTs(x.lastTs)} (동일 브라우저 기준)${x.values?' · 입력값 복원':''}</span><span class="rdel" data-del="${x.code}">×</span></span>`
+    `<span class="rchip" data-code="${x.code}"><span class="rname">이전 조회 일시: ${fmtTs(x.lastTs)} <span class="rnote">(동일한 브라우저 기록만 조회됨.)</span></span><button class="rload" data-load="${x.code}">불러오기</button><span class="rdel" data-del="${x.code}">×</span></span>`
   ).join('');
-  box.querySelectorAll('.rname').forEach(el=>el.onclick=()=>{
-    const code=el.parentElement.dataset.code;
+  box.querySelectorAll('.rload').forEach(el=>el.onclick=(e)=>{
+    e.stopPropagation();
+    const code=el.dataset.load;
     const entry=getRecent().find(x=>x.code===code);
     $('sabun').value=code;
     if(entry&&entry.values)Object.assign(state.E2,entry.values);
