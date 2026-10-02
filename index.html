@@ -235,7 +235,7 @@
           <div class="subtotals" id="subtotals"></div>
           <div class="rows" id="rows"></div>
           <div class="compare" id="compare"></div>
-          <button class="card-btn" id="cardBtn">🖼️ 이미지 카드 만들기</button>
+          <button class="card-btn" id="cardBtn">🖼️ 저장 및 이미지 카드 만들기</button>
         </div>
       </div>
     </div>
@@ -614,7 +614,7 @@ function compute(){
     </div>
     <div class="taxrow"><span class="taxlabel">지급월 예상 소득세(${won(tax.payBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.pay)}원</span></div>
     <div class="taxrow"><span class="taxlabel">지급 익월 예상 소득세(${won(tax.nextBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.next)}원</span></div>`;
-  if(cur==='E2'&&lookup){if(logPending){sendLog(lookup,st.m,r.total);saveRecent(lookup.code,lookup.name);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,regCount:st.regCount,m:st.m,adjP:st.adjP,mCert:st.mCert});}}
+  if(cur==='E2'&&lookup){if(logPending){sendLog(lookup,st.m,r.total);}}
   else{if(logPending)sendLog({},st.m,r.total);}
   logPending=false;
 }
@@ -883,7 +883,8 @@ async function renderCard(){
   g.textBaseline='top';draw(g,D,dl);
   $('cardImg').src=cv.toDataURL('image/png');cv.toBlob(b=>{cardBlob=b;},'image/png');
 }
-$('cardBtn').onclick=async()=>{const auto=(CALCS[cur].sabun&&lookup);$('nameField').style.display=auto?'none':'';$('branchField').style.display=auto?'none':'';$('cardModal').classList.add('show');await renderCard();};
+$('cardBtn').onclick=async()=>{if(cur==='E2'&&lookup){const st=state.E2;saveRecent(lookup.code,lookup.name);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,regCount:st.regCount,m:st.m,adjP:st.adjP,mCert:st.mCert});}
+  const auto=(CALCS[cur].sabun&&lookup);$('nameField').style.display=auto?'none':'';$('branchField').style.display=auto?'none':'';$('cardModal').classList.add('show');await renderCard();};
 $('cardClose').onclick=()=>$('cardModal').classList.remove('show');
 let cardTimer;function cardLive(){clearTimeout(cardTimer);cardTimer=setTimeout(renderCard,250);}
 $('cardName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();renderCard();}});
