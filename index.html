@@ -614,7 +614,7 @@ function compute(){
     </div>
     <div class="taxrow"><span class="taxlabel">지급월 예상 소득세(${won(tax.payBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.pay)}원</span></div>
     <div class="taxrow"><span class="taxlabel">지급 익월 예상 소득세(${won(tax.nextBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.next)}원</span></div>`;
-  if(cur==='E2'&&lookup){if(logPending){sendLog(lookup,st.m,r.total);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,m:st.m,adjP:st.adjP,mCert:st.mCert});}}
+  if(cur==='E2'&&lookup){if(logPending){sendLog(lookup,st.m,r.total);saveRecent(lookup.code,lookup.name);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,regCount:st.regCount,m:st.m,adjP:st.adjP,mCert:st.mCert});}}
   else{if(logPending)sendLog({},st.m,r.total);}
   logPending=false;
 }
@@ -649,9 +649,9 @@ function saveRecent(code,name){
   renderRecent();
 }
 function saveRecentMemo(code,memo){
-  const list=getRecent();
-  const idx=list.findIndex(x=>x.code===code);
-  if(idx===-1)return false;
+  let list=getRecent();
+  let idx=list.findIndex(x=>x.code===code);
+  if(idx===-1){list.unshift({code,name:(lookup&&lookup.name)||'',ts:Date.now()});list=list.slice(0,5);idx=0;}
   list[idx].memo=memo;
   try{localStorage.setItem(RECENT_KEY,JSON.stringify(list));}catch(e){return false;}
   return true;
@@ -726,7 +726,6 @@ function doLookup(){
   if(ACT[row[1]]==='1차월'){lookup=null;cur=null;renderTabs();showTabs(true);showGrid(false);chips.innerHTML=`<span class="chip"><b>${row[0]}</b></span><span class="chip">차월 <b>${row[2]}</b></span>`;msg.className='msg warn show';msg.textContent='재적에 1차월로 등록되어 있습니다. [1차월] 탭에서 합격 구분(당월/타사/옛날)을 직접 선택해 주세요.';return;}
   const [name,ai,mon,fi,bi,ci]=row;
   lookup={name,code,act:ACT[ai],mon,fee:FEE[fi],branch:(bi!=null?BRANCH[bi]:''),center:(ci!=null?CENTER[ci]:'')};state.E2.feeOv=undefined;certWarned=false;
-  saveRecent(code,name);
   const ac=lookup.act==='Active'?'maroon':(lookup.act==='Chance'?'navy':'hl');
   const needsFee=lookup.fee==='확인필요';
   chips.innerHTML=`<span class="chip"><b>${name}</b></span><span class="chip">차월 <b>${mon}</b></span><span class="chip ${ac}">${lookup.act}</span><span class="chip ${needsFee?'maroon':'blue'}">${lookup.fee}</span>`;
