@@ -438,22 +438,41 @@ const CALCS={
           {k:'⑧ 플랫폼 시책 #2',s:'Chance·계약 체결',v:s6b},
         ]};
     }},
-  X:{title:'교차/전속 · 선지급형',sub:'교차 & 전속 · 주차별 실적·연속가동 기반 (사번 조회 없음)',sabun:false,
+  X:{title:'교차/전속',sub:'교차 & 전속 · 주차별 실적·연속가동 기반 (사번 조회 없음)',sabun:false,
     inputs:[
-      {id:'rate',type:'num',label:'지급율',fixed:'250%',fixedVal:2.5,def:2.5},
+      {id:'ftype',type:'seg',label:'💰 수수료 유형',sm:'선지급형=250% 선지급+13회차 성과 · 기본형=1~18회차 분급(20%/37%)',opts:['P선지급형','P기본형'],def:'P선지급형'},
+      {id:'rate',type:'num',label:'지급율',fixed:'250%',fixedVal:2.5,def:2.5,showIf:()=>state.X.ftype!=='P기본형'},
       {id:'prevM',type:'num',label:'전월 월납보험료',sm:'연속가동 판정',def:50000},
       {id:'curM',type:'num',label:'당월 월납보험료',sm:'연속가동 시책',def:200000},
-      {id:'adjP',type:'num',label:'당월 수정보험료 (수정P)',sm:'장기신계약·13회차',def:400000},
+      {id:'adjP',type:'num',label:'당월 수정보험료 (수정P)',sm:'장기신계약·13회차 / 비례수수료 기준',def:400000},
       {id:'w1',type:'num',label:'1주차 실적',sm:'하단 \'시책 인정 기준\' 참고',def:50000},
       {id:'w2',type:'num',label:'2주차 실적',sm:'하단 \'시책 인정 기준\' 참고',def:0},
       {id:'w3',type:'num',label:'3주차 실적',sm:'하단 \'시책 인정 기준\' 참고',def:100000},
       {id:'w4',type:'num',label:'4주차 실적',sm:'하단 \'시책 인정 기준\' 참고',def:50000},
     ],
     compute(v){
-      const c1=v.rate*v.adjP;
-      const c2=br(v.adjP,LK.m13SeonCross);
+      const basic=(v.ftype==='P기본형');
       const w1=br(v.w1,LK.week1),w2=br(v.w2,LK.week2),w3=br(v.w3,LK.week3),w4=br(v.w4,LK.week4);
       const cont=v.prevM>=50000?br(v.curM,LK.cont):0;
+      if(basic){
+        // P기본형(제27조): 1~15회차 수정P×20% / 16~18회차 ×37% · 선지급·13회차 성과 없음
+        const c1=v.adjP*0.20;                       // 1회차(익월 지급)
+        const c7=v.adjP*0.20*14+v.adjP*0.37*3;      // 2~18회차 분급
+        const nm=c1+w1+w2+w3+w4;
+        return {totalCap:'수수료/시책 총액',total:nm+c7+cont,
+          subs:[{k:'익월 지급',v:nm},{k:'2~18회차 분급',v:c7,note:'20% × 14회 + 37% × 3회'}],
+          rows:[
+            {k:'① 1회차 비례 수수료',s:'수정P × 20%',v:c1},
+            {k:'② 2~18회차 비례 수수료',s:'분급형 한정·매월',v:c7,pdetail:{adjP:v.adjP,rounded:false,segs:[[2,15,14,0.20],[16,18,3,0.37]],total:c7}},
+            {k:'③ 1주차 구간 시책',s:'주차별 시책표',v:w1},
+            {k:'④ 2주차 구간 시책',s:'주차별 시책표',v:w2},
+            {k:'⑤ 3주차 구간 시책',s:'주차별 시책표',v:w3},
+            {k:'⑥ 4주차 구간 시책',s:'주차별 시책표',v:w4},
+            {k:'⑦ 연속 가동 시책',s:'전월 월납 5만↑ 조건',v:cont},
+          ]};
+      }
+      const c1=v.rate*v.adjP;
+      const c2=br(v.adjP,LK.m13SeonCross);
       const nm=c1+w1+w2+w3+w4,m13=c2+cont;
       return {totalCap:'수수료/시책 총액',total:nm+m13,
         subs:[{k:'선지급 (익월)',v:nm},{k:'13회차',v:m13,note:'13회차 성과 + 연속가동'}],
@@ -472,7 +491,7 @@ const CALCS={
   },
 };
 function taxBreakdown(rows){
-  const isPayMonth=k=>/신계약/.test(k)&&!/13회차/.test(k);
+  const isPayMonth=k=>(/신계약/.test(k)&&!/13회차/.test(k))||/1회차 비례/.test(k);
   const isNextMonth=k=>/지원비/.test(k)||(/플랫폼\s*시책/.test(k)&&/#(1|2)\b/.test(k));
   let payBase=0,nextBase=0;
   rows.forEach(row=>{if(isPayMonth(row.k))payBase+=row.v;else if(isNextMonth(row.k))nextBase+=row.v;});
@@ -765,7 +784,7 @@ function cardData(){
   const autoB=(c.sabun&&lookup)?(lookup.branch||''):'';let branch=autoB;
   if(!autoB){const bEl=$('cardBranch');const raw=bEl?bEl.value.trim():'';if(raw){const p=raw.split(/\s+/);const ct=p[0]||'';const nm=p.slice(1).join(' ');branch='파트너스'+ct+(nm?' '+nm+'지점장':'');}}
   const rows=r.rows.filter(x=>x.v>0);
-  const eyebrow=(c.sabun&&lookup)?(lookup.mon+'차월 / '+lookup.act):(cur==='N'?'1차월':c.title);
+  const eyebrow=(c.sabun&&lookup)?(lookup.mon+'차월 / '+lookup.act):(cur==='N'?'1차월':(cur==='X'?('교차/전속 · '+(st.ftype||'P선지급형')):c.title));
   const title=name?name+'님 예상 수수료·시책':'예상 수수료·시책 안내';
   const ctxt=(st.m!==undefined)?('월납 '+won(st.m)+'원(수정P '+won(st.adjP)+'원) 체결 시'):('수정P '+won(st.adjP)+'원 체결 시');
   const tax=taxBreakdown(r.rows);
