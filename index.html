@@ -640,14 +640,15 @@ function compute(){
 // ── 이용 기록 적재: Apps Script 웹앱 URL 발급 후 아래에 채워넣으면 조회+계산 시 자동 기록됩니다 ──
 const LOG_ENDPOINT='https://script.google.com/macros/s/AKfycbygi0IpOt4hrQOBP5g3cGl2XuorJdtCOGoKHfyOO1c26MwktKkzxSfG8tmIOiCi4B1S0Q/exec';
 const TAB_LABEL={N:'1차월',E2:'2차월 이상',X:'교차/전속'};
+const LOG_SRC=location.hostname+location.pathname.replace(/\/index\.html$/,'/');
 function sendLog(lk,m,total){
   if(!LOG_ENDPOINT)return;
-  const p=new URLSearchParams({tab:TAB_LABEL[cur]||cur,center:lk.center||'',branch:lk.branch||'',code:lk.code||'',name:lk.name||'',m:m||0,total:Math.round(total)||0});
+  const p=new URLSearchParams({src:LOG_SRC,tab:TAB_LABEL[cur]||cur,center:lk.center||'',branch:lk.branch||'',code:lk.code||'',name:lk.name||'',m:m||0,total:Math.round(total)||0});
   try{fetch(LOG_ENDPOINT+'?'+p.toString(),{mode:'no-cors'});}catch(e){}
 }
 function sendLogFail(code){
   if(!LOG_ENDPOINT)return;
-  const p=new URLSearchParams({tab:'조회실패',center:'',branch:'',code:code||'',name:'',m:'',total:''});
+  const p=new URLSearchParams({src:LOG_SRC,tab:'조회실패',center:'',branch:'',code:code||'',name:'',m:'',total:''});
   try{fetch(LOG_ENDPOINT+'?'+p.toString(),{mode:'no-cors'});}catch(e){}
 }
 // ── 최근 조회 사번: 기기(브라우저)별로 최대 5건 저장 ──
