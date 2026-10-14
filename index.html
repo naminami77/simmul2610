@@ -356,6 +356,7 @@ const isProBasic=f=>(f==='P프로기본형'||f==='P기본형');
 const CALCS={
   N:{title:'1차월',sub:'합격 구분(당월/타사/옛날) · 트랙(신인/프로) · 이행보증(선지급/분급)',sabun:false,
     inputs:[
+      {id:'code',type:'code',label:'🆔 사번(조직코드)',sm:'9자리 · 필수',def:''},
       {id:'pass',type:'seg',label:'✅ 합격 구분',sm:'당월=루키 시책 · 타사=경력 스팟 시책 · 옛날=시책 없음',opts:['당월 합격','타사 합격','옛날에 합격'],def:'당월 합격'},
       {id:'bond',type:'seg',label:'🛡️ 이행보증보험 가입',sm:'가입=선지급 · 미가입=분급',opts:['가입','미가입'],def:'가입'},
       {id:'track',type:'seg',label:'💰 수수료 유형',sm:'P신인=순수신인(1~12차월) · P프로=13차월 이상 / 경력',opts:['P신인','P프로'],def:'P신인'},
@@ -440,6 +441,7 @@ const CALCS={
     }},
   X:{title:'교차/전속',sub:'교차 & 전속 · 주차별 실적·연속가동 기반 (사번 조회 없음)',sabun:false,
     inputs:[
+      {id:'code',type:'code',label:'🆔 사번(조직코드)',sm:'9자리 · 필수',def:''},
       {id:'ftype',type:'seg',label:'💰 수수료 유형',sm:'선지급형=250% 선지급+13회차 성과 · 기본형=1~18회차 분급(20%/37%)',opts:['P선지급형','P기본형'],def:'P선지급형'},
       {id:'rate',type:'num',label:'지급율',fixed:'250%',fixedVal:2.5,def:2.5,showIf:()=>state.X.ftype!=='P기본형'},
       {id:'prevM',type:'num',label:'전월 월납보험료',sm:'연속가동 판정',def:50000},
@@ -554,6 +556,13 @@ function renderCalc(){
       const b=document.createElement('button');b.className='on';b.textContent=forced;b.style.pointerEvents='none';
       seg.appendChild(b);field.appendChild(seg);box.appendChild(field);return;
     }
+    if(f.type==='code'){
+      const inp=document.createElement('input');inp.type='text';inp.className='numin';inp.inputMode='numeric';inp.placeholder='사번 9자리 입력';inp.maxLength=9;inp.style.textAlign='left';
+      inp.value=st[f.id]||'';
+      inp.oninput=()=>{const raw=inp.value.replace(/\D/g,'').slice(0,9);inp.value=raw;if(raw.length===9&&['3','5','9'].includes(raw[0]))st[f.id]=raw;else delete st[f.id];updateCalcState();refreshGlow();};
+      inp.addEventListener('blur',()=>{const raw=inp.value;if(raw&&(raw.length!==9||!['3','5','9'].includes(raw[0])))showAlert('사번을 정확히 입력해주세요.');});
+      field.appendChild(inp);box.appendChild(field);return;
+    }
     if(f.type==='seg'){
       const seg=document.createElement('div');seg.className='seg';
       f.opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.className=st[f.id]===o?'on':'';
@@ -634,7 +643,7 @@ function compute(){
     <div class="taxrow"><span class="taxlabel">지급월 예상 소득세(${won(tax.payBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.pay)}원</span></div>
     <div class="taxrow"><span class="taxlabel">지급 익월 예상 소득세(${won(tax.nextBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.next)}원</span></div>`;
   if(cur==='E2'&&lookup){if(logPending){sendLog(lookup,st.m,r.total);}}
-  else{if(logPending)sendLog({},st.m,r.total);}
+  else{if(logPending)sendLog({code:st.code||''},st.m!==undefined?st.m:(st.curM||0),r.total);}
   logPending=false;
 }
 // ── 이용 기록 적재: Apps Script 웹앱 URL 발급 후 아래에 채워넣으면 조회+계산 시 자동 기록됩니다 ──
