@@ -410,27 +410,39 @@ const CALCS={
       {id:'m',type:'num',label:'📅 당월 총 월납(N잡 실적 현황)',def:100000,group:'pay'},
       {id:'adjP',type:'num',label:'📅 당월 총 수정보험료(N잡 실적 현황)',def:220000,group:'pay'},
       {id:'mCert',type:'num',label:'📅 당월 시책 인정 월납',sm:'실손/성공파트너/펫보험 재가입 등 제외. 하단 \'시책 인정 기준\' 참고.',def:100000,group:'pay'},
+      {id:'adjS',type:'num',label:'⚠️ 조치대상(기본형S) 계약 수정P',sm:'영업규정 제51조 조치대상 계약만 · 해당 없으면 0 · 위 수정P에 포함된 금액',def:0,showIf:()=>lookup&&(state.E2.feeOv||lookup.fee)==='P신인선지급형'},
     ],
     compute(v){
       const act=v._act,mon=v._mon,fee=v._fee;
       const seon=(v.bond==='가입');
       const pro=(fee==='P선지급형'||fee==='P프로선지급형');
       const pb=(fee==='P프로기본형'||fee==='P기본형');
-      const c1=seon?(pro?v.adjP*1.667:v.adjP*0.833):(pb?rd(v.adjP*0.133):rd(v.adjP*0.074));
-      const c2=(seon&&fee==='P신인선지급형')?br(v.adjP,LK.sinhwalbi):0;
+      // 기본형S(제31조): P신인선지급형의 제51조 조치대상 계약 → 해당 수정P만 분리해 1~12회차 4.2% / 16~18회차 6.9% 분급
+      const sS=(fee==='P신인선지급형'&&v.adjS>0)?Math.min(v.adjS,v.adjP):0;
+      const adjN=v.adjP-sS;
+      const cS1=sS*0.042;                       // 1회차(익월)
+      const cS7=sS*0.042*11+sS*0.069*3;         // 2~12회차 + 16~18회차 (13~15회차 미지급)
+      const c1=seon?(pro?adjN*1.667:adjN*0.833):(pb?rd(adjN*0.133):rd(adjN*0.074));
+      const c2=(seon&&fee==='P신인선지급형')?br(v.adjP,LK.sinhwalbi):0;  // 신인활동지원비는 조치대상 포함 전체 수정P 기준
       const s4=(act==='Active'&&v.mo==='충족')?br(v.mCert,LK.plat1):0;
       const s5=(act==='Active'&&v.consult==='충족')?br(v.mCert,LK.plat2):0;
       const s6=(act==='Chance'&&v.mo==='충족')?br(parseInt(v.regCount)||0,LK.coupon_chance):0;
       const s6b=(act==='Chance'&&v.mo==='충족')?br(v.mCert,LK.plat2_chance):0;
       let nm; if(seon){ if(mon>=13)nm=c1+s4+s5+s6+s6b; else nm=c1+c2+s4+s5+s6+s6b; } else nm=c1+s4+s5+s6+s6b;
-      const c7=seon?0:((pb?rd(v.adjP*0.133):rd(v.adjP*0.074))*11+(pb?rd(v.adjP*0.142):rd(v.adjP*0.417))*3+(pb?rd(v.adjP*0.154):rd(v.adjP*0.458))*3);
-      const c8=(seon&&pro)?br(v.adjP,LK.m13_pro):0;
+      nm+=cS1;
+      const c7=seon?0:((pb?rd(adjN*0.133):rd(adjN*0.074))*11+(pb?rd(adjN*0.142):rd(adjN*0.417))*3+(pb?rd(adjN*0.154):rd(adjN*0.458))*3);
+      const c8=(seon&&pro)?br(adjN,LK.m13_pro):0;
       const yr2=pro?c8:0;
-      return {totalCap:'수수료/시책 총액',total:nm+c7+yr2,
+      const sRows=sS>0?[
+        {k:'①-S 조치대상 1회차 비례 (기본형S)',s:'조치대상 수정P × 4.2%',v:cS1},
+        {k:'②-S 조치대상 2~18회차 비례 (기본형S)',s:'4.2% × 11회 + 6.9% × 3회 · 13~15회차 미지급',v:cS7,pdetail:{adjP:sS,rounded:false,segs:[[2,12,11,0.042],[16,18,3,0.069]],total:cS7}},
+      ]:[];
+      return {totalCap:'수수료/시책 총액',total:nm+c7+cS7+yr2,
         subs:c8>0?[{k:'익월 지급',v:nm},{k:'2차년도 지급',v:yr2,note:'13회차 성과'}]:[{k:'익월 지급',v:nm}],
         rows:[
-          {k:'① 장기 신계약 성과 수수료',s:seon?(pro?'수정P × 166.7%':'수정P × 83.3%'):(pb?'수정P × 13.3%':'수정P × 7.4%'),v:c1},
-          {k:'② 2~18회차 비례 수수료',s:'분급형 한정·매월',v:c7,pdetail:{adjP:v.adjP,rounded:true,segs:[[2,12,11,pb?0.133:0.074],[13,15,3,pb?0.142:0.417],[16,18,3,pb?0.154:0.458]],total:c7}},
+          {k:'① 장기 신계약 성과 수수료',s:(seon?(pro?'수정P × 166.7%':'수정P × 83.3%'):(pb?'수정P × 13.3%':'수정P × 7.4%'))+(sS>0?' (조치대상 제외분)':''),v:c1},
+          {k:'② 2~18회차 비례 수수료',s:'분급형 한정·매월',v:c7,pdetail:{adjP:adjN,rounded:true,segs:[[2,12,11,pb?0.133:0.074],[13,15,3,pb?0.142:0.417],[16,18,3,pb?0.154:0.458]],total:c7}},
+          ...sRows,
           {k:'③ 13회차 성과 수수료',s:'P선지급형/P프로선지급형 한정',v:c8,detail:'m13_pro'},
           {k:'④ 신인 활동 지원비',s:'P신인선지급형 한정',v:c2,detail:'sinhwalbi'},
           {k:'⑤ 플랫폼 시책 #1',s:'Active·모바일 MeAI',v:s4},
@@ -493,7 +505,7 @@ const CALCS={
   },
 };
 function taxBreakdown(rows){
-  const isPayMonth=k=>(/신계약/.test(k)&&!/13회차/.test(k))||/1회차 비례/.test(k);
+  const isPayMonth=k=>(/신계약/.test(k)&&!/13회차/.test(k))||/1회차 비례/.test(k)||/①-S/.test(k);
   const isNextMonth=k=>/지원비/.test(k)||(/플랫폼\s*시책/.test(k)&&/#(1|2)\b/.test(k));
   let payBase=0,nextBase=0;
   rows.forEach(row=>{if(isPayMonth(row.k))payBase+=row.v;else if(isNextMonth(row.k))nextBase+=row.v;});
@@ -581,7 +593,7 @@ function renderCalc(){
       }
     }
     box.appendChild(field);
-    if(cur==='E2'&&lookup&&f.id==='mCert')box.appendChild(buildMemoField(lookup.code));
+    if(cur==='E2'&&lookup&&f.id===(vis.some(x=>x.id==='adjS')?'adjS':'mCert'))box.appendChild(buildMemoField(lookup.code));
   });
   updateCalcState();
 }
@@ -912,7 +924,7 @@ async function renderCard(){
   g.textBaseline='top';draw(g,D,dl);
   $('cardImg').src=cv.toDataURL('image/png');cv.toBlob(b=>{cardBlob=b;},'image/png');
 }
-$('cardBtn').onclick=async()=>{if(cur==='E2'&&lookup){const st=state.E2;saveRecent(lookup.code,lookup.name);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,regCount:st.regCount,m:st.m,adjP:st.adjP,mCert:st.mCert});}
+$('cardBtn').onclick=async()=>{if(cur==='E2'&&lookup){const st=state.E2;saveRecent(lookup.code,lookup.name);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,regCount:st.regCount,m:st.m,adjP:st.adjP,mCert:st.mCert,adjS:st.adjS});}
   const auto=(CALCS[cur].sabun&&lookup);$('nameField').style.display=auto?'none':'';$('branchField').style.display=auto?'none':'';$('cardModal').classList.add('show');await renderCard();};
 $('cardClose').onclick=()=>$('cardModal').classList.remove('show');
 let cardTimer;function cardLive(){clearTimeout(cardTimer);cardTimer=setTimeout(renderCard,250);}
