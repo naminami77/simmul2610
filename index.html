@@ -356,7 +356,6 @@ const isProBasic=f=>(f==='P프로기본형'||f==='P기본형');
 const CALCS={
   N:{title:'1차월',sub:'합격 구분(당월/타사/옛날) · 트랙(신인/프로) · 이행보증(선지급/분급)',sabun:false,
     inputs:[
-      {id:'code',type:'code',label:'🆔 사번(조직코드)',sm:'9자리 · 필수',def:''},
       {id:'pass',type:'seg',label:'✅ 합격 구분',sm:'당월=루키 시책 · 타사=경력 스팟 시책 · 옛날=시책 없음',opts:['당월 합격','타사 합격','옛날에 합격'],def:'당월 합격'},
       {id:'bond',type:'seg',label:'🛡️ 이행보증보험 가입',sm:'가입=선지급 · 미가입=분급',opts:['가입','미가입'],def:'가입'},
       {id:'track',type:'seg',label:'💰 수수료 유형',sm:'P신인=순수신인(1~12차월) · P프로=13차월 이상 / 경력',opts:['P신인','P프로'],def:'P신인'},
@@ -365,16 +364,21 @@ const CALCS={
       {id:'m',type:'num',label:'📅 당월 총 월납(N잡 실적 현황)',def:50000,group:'pay'},
       {id:'adjP',type:'num',label:'📅 당월 총 수정보험료(N잡 실적 현황)',def:120000,group:'pay'},
       {id:'mCert',type:'num',label:'📅 당월 시책 인정 월납',sm:'실손/성공파트너/펫보험 재가입 등 제외. 하단 \'시책 인정 기준\' 참고.',def:50000,group:'pay'},
+      {id:'adjS',type:'num',label:'⚠️ 분급대상(기본형S) 계약 수정P',sm:'영업규정 제51조 분급대상 계약만 · 해당 없으면 0 · 위 수정P에 포함된 금액',def:0,showIf:()=>state.N.track==='P신인'&&state.N.bond==='가입'},
     ],
     compute(v){
       const seon=(v.bond==='가입'),pro=(v.track==='P프로');
       const isDang=(v.pass==='당월 합격'),isTasa=(v.pass==='타사 합격');
       // ① 장기 신계약 성과: 선지급=신인83.3%/프로166.7%, 분급 1회차=신인7.4%/프로13.3%
-      const c1=seon?(pro?rd(v.adjP*1.667):rd(v.adjP*0.833)):(pro?rd(v.adjP*0.133):rd(v.adjP*0.074));
-      // ④ 신인 활동 지원비: 신인선지급형 한정(프로 제외)
+      // 기본형S(제31조): P신인선지급형(P신인+가입)의 제51조 분급대상 계약 → 해당 수정P만 분리해 1~12회차 4.2% / 16~18회차 6.9% 분급
+      const sS=(seon&&!pro&&v.adjS>0)?Math.min(v.adjS,v.adjP):0;
+      const adjN=v.adjP-sS;
+      const cS1=sS*0.042, cS7=sS*0.042*11+sS*0.069*3;
+      const c1=seon?(pro?rd(adjN*1.667):rd(adjN*0.833)):(pro?rd(adjN*0.133):rd(adjN*0.074));
+      // ④ 신인 활동 지원비: 신인선지급형 한정(프로 제외) · 분급대상 포함 전체 수정P 기준
       const c2=(seon&&!pro)?br(v.adjP,LK.sinhwalbi):0;
       // ③ 13회차 성과: 프로선지급형 한정
-      const c8=(seon&&pro)?br(v.adjP,LK.m13_pro):0;
+      const c8=(seon&&pro)?br(adjN,LK.m13_pro):0;
       // 루키 시책(당월 합격만)
       const s1=(isDang&&v.meai==='충족')?br(v.mCert,LK.plat1):0;
       const s2=(isDang&&seon)?br(v.pay9,LK.plat2):0;
@@ -382,15 +386,20 @@ const CALCS={
       const spot=isTasa?br(v.m,LK.plat1):0;
       // ② 2~18회차 비례(분급 한정): 신인 7.4/41.7/45.8, 프로 13.3/14.2/15.4
       const r1=pro?0.133:0.074, r2=pro?0.142:0.417, r3=pro?0.154:0.458;
-      const c5=seon?0:(v.adjP*r1*11+v.adjP*r2*3+v.adjP*r3*3);
-      const nm=c1+c2+s1+s2+spot;
+      const c5=seon?0:(adjN*r1*11+adjN*r2*3+adjN*r3*3);
+      const nm=c1+c2+s1+s2+spot+cS1;
       const yr2=c8;
-      const seonLabel=seon?(pro?'수정P × 166.7%':'수정P × 83.3%'):(pro?'수정P × 13.3%':'수정P × 7.4%');
-      return {totalCap:'수수료/시책 총액',total:nm+c5+yr2,
+      const seonLabel=(seon?(pro?'수정P × 166.7%':'수정P × 83.3%'):(pro?'수정P × 13.3%':'수정P × 7.4%'))+(sS>0?' (분급대상 제외분)':'');
+      const sRows=sS>0?[
+        {k:'①-S 분급대상 1회차 비례 (기본형S)',s:'분급대상 수정P × 4.2%',v:cS1},
+        {k:'②-S 분급대상 2~18회차 비례 (기본형S)',s:'4.2% × 11회 + 6.9% × 3회 · 13~15회차 미지급',v:cS7,pdetail:{adjP:sS,rounded:false,segs:[[2,12,11,0.042],[16,18,3,0.069]],total:cS7}},
+      ]:[];
+      return {totalCap:'수수료/시책 총액',total:nm+c5+cS7+yr2,
         subs:c8>0?[{k:'익월 지급',v:nm},{k:'2차년도 지급',v:yr2,note:'13회차 성과'}]:[{k:'익월 지급',v:nm}],
         rows:[
           {k:'① 장기 신계약 성과 수수료',s:seonLabel,v:c1},
-          {k:'② 2~18회차 비례 수수료',s:'분급형 한정·매월',v:c5,pdetail:{adjP:v.adjP,rounded:false,segs:[[2,12,11,r1],[13,15,3,r2],[16,18,3,r3]],total:c5}},
+          {k:'② 2~18회차 비례 수수료',s:'분급형 한정·매월',v:c5,pdetail:{adjP:adjN,rounded:false,segs:[[2,12,11,r1],[13,15,3,r2],[16,18,3,r3]],total:c5}},
+          ...sRows,
           {k:'③ 13회차 성과 수수료',s:'프로선지급형 한정 / 2차년도 지급',v:c8,detail:'m13_pro'},
           {k:'④ 신인 활동 지원비',s:'신인선지급형 한정',v:c2,detail:'sinhwalbi'},
           {k:'⑤ 플랫폼 시책 #1',s:'당월 합격·MeAI',v:s1},
@@ -453,7 +462,6 @@ const CALCS={
     }},
   X:{title:'교차/전속',sub:'교차 & 전속 · 주차별 실적·연속가동 기반 (사번 조회 없음)',sabun:false,
     inputs:[
-      {id:'code',type:'code',label:'🆔 사번(조직코드)',sm:'9자리 · 필수',def:''},
       {id:'ftype',type:'seg',label:'💰 수수료 유형',sm:'선지급형=250% 선지급+13회차 성과 · 기본형=1~18회차 분급(20%/37%)',opts:['P선지급형','P기본형'],def:'P선지급형'},
       {id:'rate',type:'num',label:'지급율',fixed:'250%',fixedVal:2.5,def:2.5,showIf:()=>state.X.ftype!=='P기본형'},
       {id:'prevM',type:'num',label:'전월 월납보험료',sm:'연속가동 판정',def:50000},
@@ -568,13 +576,6 @@ function renderCalc(){
       const b=document.createElement('button');b.className='on';b.textContent=forced;b.style.pointerEvents='none';
       seg.appendChild(b);field.appendChild(seg);box.appendChild(field);return;
     }
-    if(f.type==='code'){
-      const inp=document.createElement('input');inp.type='text';inp.className='numin';inp.inputMode='numeric';inp.placeholder='사번 9자리 입력';inp.maxLength=9;inp.style.textAlign='left';
-      inp.value=st[f.id]||'';
-      inp.oninput=()=>{const raw=inp.value.replace(/\D/g,'').slice(0,9);inp.value=raw;if(raw.length===9&&['3','5','9'].includes(raw[0]))st[f.id]=raw;else delete st[f.id];updateCalcState();refreshGlow();};
-      inp.addEventListener('blur',()=>{const raw=inp.value;if(raw&&(raw.length!==9||!['3','5','9'].includes(raw[0])))showAlert('사번을 정확히 입력해주세요.');});
-      field.appendChild(inp);box.appendChild(field);return;
-    }
     if(f.type==='seg'){
       const seg=document.createElement('div');seg.className='seg';
       f.opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.className=st[f.id]===o?'on':'';
@@ -655,7 +656,7 @@ function compute(){
     <div class="taxrow"><span class="taxlabel">지급월 예상 소득세(${won(tax.payBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.pay)}원</span></div>
     <div class="taxrow"><span class="taxlabel">지급 익월 예상 소득세(${won(tax.nextBase)}원 × 3.3%)</span><span class="taxamt">${won(tax.next)}원</span></div>`;
   if(cur==='E2'&&lookup){if(logPending){sendLog(lookup,st.m,r.total);}}
-  else{if(logPending)sendLog({code:st.code||''},st.m!==undefined?st.m:(st.curM||0),r.total);}
+  else{if(logPending)sendLog({},st.m!==undefined?st.m:(st.curM||0),r.total);}
   logPending=false;
 }
 // ── 이용 기록 적재: Apps Script 웹앱 URL 발급 후 아래에 채워넣으면 조회+계산 시 자동 기록됩니다 ──
