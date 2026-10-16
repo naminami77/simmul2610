@@ -364,7 +364,7 @@ const CALCS={
       {id:'m',type:'num',label:'📅 당월 총 월납(N잡 실적 현황)',def:50000,group:'pay'},
       {id:'adjP',type:'num',label:'📅 당월 총 수정보험료(N잡 실적 현황)',def:120000,group:'pay'},
       {id:'mCert',type:'num',label:'📅 당월 시책 인정 월납',sm:'실손/성공파트너/펫보험 재가입 등 제외. 하단 \'시책 인정 기준\' 참고.',def:50000,group:'pay'},
-      {id:'adjS',type:'num',label:'⚠️ 분급대상(기본형S) 계약 수정P',sm:'영업규정 제51조 분급대상 계약만 · 해당 없으면 0 · 위 수정P에 포함된 금액',def:0,showIf:()=>state.N.track==='P신인'&&state.N.bond==='가입'},
+      {id:'adjS',type:'num',label:'⚠️ 분급대상(기본형S) 계약 수정P',sm:'P신인·이행보증 가입(P신인선지급형)만 적용 · 영업규정 제51조 분급대상 계약만 · 해당 없으면 0',def:0},
     ],
     compute(v){
       const seon=(v.bond==='가입'),pro=(v.track==='P프로');
