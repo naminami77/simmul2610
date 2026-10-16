@@ -365,6 +365,7 @@ const CALCS={
       {id:'adjP',type:'num',label:'📅 당월 총 수정보험료(N잡 실적 현황)',def:120000,group:'pay'},
       {id:'mCert',type:'num',label:'📅 당월 시책 인정 월납',sm:'실손/성공파트너/펫보험 재가입 등 제외. 하단 \'시책 인정 기준\' 참고.',def:50000,group:'pay'},
       {id:'adjS',type:'num',label:'⚠️ 분급대상(기본형S) 계약 수정P',sm:'P신인·이행보증 가입(P신인선지급형)만 적용 · 영업규정 제51조 분급대상 계약만 · 해당 없으면 0',def:0},
+      {id:'bonus',type:'num',label:'🎖️ 특별 시상 (스팟)',sm:'정규 수수료·시책 외 스팟성 시책금 · 해당 없으면 0 · 익월 지급',def:0},
     ],
     compute(v){
       const seon=(v.bond==='가입'),pro=(v.track==='P프로');
@@ -387,7 +388,8 @@ const CALCS={
       // ② 2~18회차 비례(분급 한정): 신인 7.4/41.7/45.8, 프로 13.3/14.2/15.4
       const r1=pro?0.133:0.074, r2=pro?0.142:0.417, r3=pro?0.154:0.458;
       const c5=seon?0:(adjN*r1*11+adjN*r2*3+adjN*r3*3);
-      const nm=c1+c2+s1+s2+spot+cS1;
+      const bn=v.bonus||0;
+      const nm=c1+c2+s1+s2+spot+cS1+bn;
       const yr2=c8;
       const seonLabel=(seon?(pro?'수정P × 166.7%':'수정P × 83.3%'):(pro?'수정P × 13.3%':'수정P × 7.4%'))+(sS>0?' (분급대상 제외분)':'');
       const sRows=sS>0?[
@@ -405,6 +407,7 @@ const CALCS={
           {k:'⑤ 플랫폼 시책 #1',s:'당월 합격·MeAI',v:s1},
           {k:'⑥ 플랫폼 시책 #2',s:'당월 합격·이행보증',v:s2},
           {k:'⑦ 타사합격 1차월 시책',s:'타사 합격자·월납 기준·월말까지 이행보증가입 필요',v:spot},
+          {k:'⑧ 특별 시상',s:'스팟성 시책 · 익월 지급',v:bn},
         ]};
     },
     compare(st){return {header:'월납별 예상 수수료 예시(수정P = 월납의 2배 예상)',
@@ -420,6 +423,7 @@ const CALCS={
       {id:'adjP',type:'num',label:'📅 당월 총 수정보험료(N잡 실적 현황)',def:220000,group:'pay'},
       {id:'mCert',type:'num',label:'📅 당월 시책 인정 월납',sm:'실손/성공파트너/펫보험 재가입 등 제외. 하단 \'시책 인정 기준\' 참고.',def:100000,group:'pay'},
       {id:'adjS',type:'num',label:'⚠️ 분급대상(기본형S) 계약 수정P',sm:'영업규정 제51조 분급대상 계약만 · 해당 없으면 0 · 위 수정P에 포함된 금액',def:0,showIf:()=>lookup&&(state.E2.feeOv||lookup.fee)==='P신인선지급형'},
+      {id:'bonus',type:'num',label:'🎖️ 특별 시상 (스팟)',sm:'정규 수수료·시책 외 스팟성 시책금 · 해당 없으면 0 · 익월 지급',def:0},
     ],
     compute(v){
       const act=v._act,mon=v._mon,fee=v._fee;
@@ -438,7 +442,8 @@ const CALCS={
       const s6=(act==='Chance'&&v.mo==='충족')?br(parseInt(v.regCount)||0,LK.coupon_chance):0;
       const s6b=(act==='Chance'&&v.mo==='충족')?br(v.mCert,LK.plat2_chance):0;
       let nm; if(seon){ if(mon>=13)nm=c1+s4+s5+s6+s6b; else nm=c1+c2+s4+s5+s6+s6b; } else nm=c1+s4+s5+s6+s6b;
-      nm+=cS1;
+      const bn=v.bonus||0;
+      nm+=cS1+bn;
       const c7=seon?0:((pb?rd(adjN*0.133):rd(adjN*0.074))*11+(pb?rd(adjN*0.142):rd(adjN*0.417))*3+(pb?rd(adjN*0.154):rd(adjN*0.458))*3);
       const c8=(seon&&pro)?br(adjN,LK.m13_pro):0;
       const yr2=pro?c8:0;
@@ -458,6 +463,7 @@ const CALCS={
           {k:'⑥ 플랫폼 시책 #2',s:'Active·가계약',v:s5},
           {k:'⑦ 플랫폼 시책 #1',s:'Chance·모바일 쿠폰(이마트 상품권)',v:s6},
           {k:'⑧ 플랫폼 시책 #2',s:'Chance·계약 체결',v:s6b},
+          {k:'⑨ 특별 시상',s:'스팟성 시책 · 익월 지급',v:bn},
         ]};
     }},
   X:{title:'교차/전속',sub:'교차 & 전속 · 주차별 실적·연속가동 기반 (사번 조회 없음)',sabun:false,
@@ -471,6 +477,7 @@ const CALCS={
       {id:'w2',type:'num',label:'2주차 실적',sm:'하단 \'시책 인정 기준\' 참고',def:0},
       {id:'w3',type:'num',label:'3주차 실적',sm:'하단 \'시책 인정 기준\' 참고',def:100000},
       {id:'w4',type:'num',label:'4주차 실적',sm:'하단 \'시책 인정 기준\' 참고',def:50000},
+      {id:'bonus',type:'num',label:'🎖️ 특별 시상 (스팟)',sm:'정규 수수료·시책 외 스팟성 시책금 · 해당 없으면 0 · 익월 지급',def:0},
     ],
     compute(v){
       const basic=(v.ftype==='P기본형');
@@ -480,7 +487,8 @@ const CALCS={
         // P기본형(제27조): 1~15회차 수정P×20% / 16~18회차 ×37% · 선지급·13회차 성과 없음
         const c1=v.adjP*0.20;                       // 1회차(익월 지급)
         const c7=v.adjP*0.20*14+v.adjP*0.37*3;      // 2~18회차 분급
-        const nm=c1+w1+w2+w3+w4;
+        const bn=v.bonus||0;
+        const nm=c1+w1+w2+w3+w4+bn;
         return {totalCap:'수수료/시책 총액',total:nm+c7+cont,
           subs:[{k:'익월 지급',v:nm},{k:'2~18회차 분급',v:c7,note:'20% × 14회 + 37% × 3회'}],
           rows:[
@@ -491,11 +499,13 @@ const CALCS={
             {k:'⑤ 3주차 구간 시책',s:'주차별 시책표',v:w3},
             {k:'⑥ 4주차 구간 시책',s:'주차별 시책표',v:w4},
             {k:'⑦ 연속 가동 시책',s:'전월 월납 5만↑ 조건',v:cont},
+          {k:'⑧ 특별 시상',s:'스팟성 시책 · 익월 지급',v:bn},
           ]};
       }
       const c1=v.rate*v.adjP;
       const c2=br(v.adjP,LK.m13SeonCross);
-      const nm=c1+w1+w2+w3+w4,m13=c2+cont;
+      const bn=v.bonus||0;
+      const nm=c1+w1+w2+w3+w4+bn,m13=c2+cont;
       return {totalCap:'수수료/시책 총액',total:nm+m13,
         subs:[{k:'선지급 (익월)',v:nm},{k:'13회차',v:m13,note:'13회차 성과 + 연속가동'}],
         rows:[
@@ -506,6 +516,7 @@ const CALCS={
           {k:'⑤ 3주차 구간 시책',s:'주차별 시책표',v:w3},
           {k:'⑥ 4주차 구간 시책',s:'주차별 시책표',v:w4},
           {k:'⑦ 연속 가동 시책',s:'전월 월납 5만↑ 조건',v:cont},
+          {k:'⑧ 특별 시상',s:'스팟성 시책 · 익월 지급',v:bn},
         ]};
     },
     compare(st){return {header:'수정보험료별 예상 수수료 (주차·연속가동 시책 고정)',
@@ -514,7 +525,7 @@ const CALCS={
 };
 function taxBreakdown(rows){
   const isPayMonth=k=>(/신계약/.test(k)&&!/13회차/.test(k))||/1회차 비례/.test(k)||/①-S/.test(k);
-  const isNextMonth=k=>/지원비/.test(k)||(/플랫폼\s*시책/.test(k)&&/#(1|2)\b/.test(k));
+  const isNextMonth=k=>/지원비/.test(k)||(/플랫폼\s*시책/.test(k)&&/#(1|2)\b/.test(k))||/특별 시상/.test(k);
   let payBase=0,nextBase=0;
   rows.forEach(row=>{if(isPayMonth(row.k))payBase+=row.v;else if(isNextMonth(row.k))nextBase+=row.v;});
   return {payBase,nextBase,pay:Math.round(payBase*0.033),next:Math.round(nextBase*0.033)};
@@ -594,7 +605,7 @@ function renderCalc(){
       }
     }
     box.appendChild(field);
-    if(cur==='E2'&&lookup&&f.id===(vis.some(x=>x.id==='adjS')?'adjS':'mCert'))box.appendChild(buildMemoField(lookup.code));
+    if(cur==='E2'&&lookup&&f.id==='bonus')box.appendChild(buildMemoField(lookup.code));
   });
   updateCalcState();
 }
@@ -925,7 +936,7 @@ async function renderCard(){
   g.textBaseline='top';draw(g,D,dl);
   $('cardImg').src=cv.toDataURL('image/png');cv.toBlob(b=>{cardBlob=b;},'image/png');
 }
-$('cardBtn').onclick=async()=>{if(cur==='E2'&&lookup){const st=state.E2;saveRecent(lookup.code,lookup.name);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,regCount:st.regCount,m:st.m,adjP:st.adjP,mCert:st.mCert,adjS:st.adjS});}
+$('cardBtn').onclick=async()=>{if(cur==='E2'&&lookup){const st=state.E2;saveRecent(lookup.code,lookup.name);saveRecentValues(lookup.code,{mo:st.mo,consult:st.consult,regCount:st.regCount,m:st.m,adjP:st.adjP,mCert:st.mCert,adjS:st.adjS,bonus:st.bonus});}
   const auto=(CALCS[cur].sabun&&lookup);$('nameField').style.display=auto?'none':'';$('branchField').style.display=auto?'none':'';$('cardModal').classList.add('show');await renderCard();};
 $('cardClose').onclick=()=>$('cardModal').classList.remove('show');
 let cardTimer;function cardLive(){clearTimeout(cardTimer);cardTimer=setTimeout(renderCard,250);}
