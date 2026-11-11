@@ -447,7 +447,7 @@ const CALCS={
       const cS1=sS*0.042;                       // 1회차(익월)
       const cS7=sS*0.042*11+sS*0.069*3;         // 2~12회차 + 16~18회차 (13~15회차 미지급)
       const c1=seon?(pro?adjN*1.667:adjN*0.833):(pb?rd(adjN*0.133):rd(adjN*0.074));
-      const c2=(seon&&mon<=12)?br(v.adjP,LK.sinhwalbi):0;  // 신인활동지원비: 선지급·12차월까지 · 분급대상 포함 전체 수정P 기준
+      const c2=(seon&&!/P프로/.test(fee)&&mon<=12)?br(v.adjP,LK.sinhwalbi):0;  // 신인활동지원비: 선지급·12차월까지 · 분급대상 포함 전체 수정P 기준
       const s4=(act==='Active'&&v.mo==='충족')?br(v.mCert,LK.plat1):0;
       const s5=(act==='Active'&&v.consult==='충족')?br(v.mCert,LK.plat2):0;
       const s6=(act==='Chance'&&v.mo==='충족')?br(parseInt(v.regCount)||0,LK.coupon_chance):0;
@@ -456,7 +456,7 @@ const CALCS={
       const bn=v.bonus||0;
       nm+=cS1+bn;
       const c7=seon?0:((pb?rd(adjN*0.133):rd(adjN*0.074))*11+(pb?rd(adjN*0.142):rd(adjN*0.417))*3+(pb?rd(adjN*0.154):rd(adjN*0.458))*3);
-      const c8=(seon&&mon>=13)?br(adjN,LK.m13_pro):0;  // 13회차 성과: 선지급·13차월 이상
+      const c8=(seon&&(/P프로/.test(fee)||mon>=13))?br(adjN,LK.m13_pro):0;  // 13회차 성과: 선지급·13차월 이상
       const yr2=c8;
       const sRows=sS>0?[
         {k:'①-S 분급대상 1회차 비례 (기본형S)',s:'분급대상 수정P × 4.2%',v:cS1},
